@@ -110,46 +110,51 @@ int hooktoserver(char *servhost, ushort servport) {
 }
 /*----------------------------------------------------------------*/
 
+
 /*----------------------------------------------------------------*/
 
-/*
-char *recvtext(int sd) {
-	char *msg;
-	long len;
+int readn(int sd, char *buf, int n) {
+    int toberead;
+    char * ptr;
 
-	if (!readn(sd, (char *) &len, sizeof(len))) {
-		return (NULL);
-	}
-	len = ntohl(len);
+    toberead = n;
+    ptr = buf;
+    while (toberead > 0) {
+        int byteread;
 
-	msg = NULL;
-    msg = (char *) malloc(MAX_HEADER_LINE_SIZE);
-    if (!msg) {
-        fprintf(stderr, "error : unable to malloc\n");
-        return (NULL);
+        byteread = read(sd, ptr, toberead);
+        if (byteread <= 0) {
+            if (byteread == -1)
+                perror("read");
+            return (0);
+        }
+
+        toberead -= byteread;
+        ptr += byteread;
+    }
+    return (1);
+}
+
+char *process_http_response_body(int sd, int len) {
+    char *msg;
+    msg = NULL;
+    if (len > 0) {
+        msg = (char *) malloc(len);
+        if (!msg) {
+            fprintf(stderr, "error : unable to malloc\n");
+            return (NULL);
+        }
+
+        /* read the message text */
+        if (!readn(sd, msg, len)) {
+            free(msg);
+            return (NULL);
+        }
     }
 
-	char * ptr;
-
-	ptr = buf;
-    int toberead = 1;
-	while (toberead > 0) {
-		int byteread;
-
-		byteread = read(sd, ptr, toberead);
-		if (byteread < 0) {
-			if (byteread == -1)
-				perror("read");
-			return (0);
-		}
-
-		ptr += byteread;
-	}
-	return (1);
-
-	return (msg);
+    /* done reading */
+    return (msg);
 }
-*/
 
 int req_done_processing(char *str1){
     char end[] = "\r\n";
@@ -157,10 +162,59 @@ int req_done_processing(char *str1){
     return !ret;
 }
 
-char *process_req_header(int sd){
+char* process_http_response_header(int sd, int *content_length){
     char *header;
     char *line;
-    //header = process_first_line(sd);
+    header = process_req_line(sd);
+    int done = 0;
+    int is_content_length_line = 0;
+    int cont_length = 0;
+    while(!done){
+        line = process_req_line(sd);
+        strcat(header, line);
+        if(is_content_length_line = check_if_content_length_line(line)){
+            cont_length = get_content_length(line);
+            *content_length = cont_length;
+        }
+        done = req_done_processing(line);
+        free(line);
+    }
+    return header;
+}
+
+//returns 1 if this line holds the content length header line
+int check_if_content_length_line(char* line){
+    int is_content_length = 0;
+    char con_line[] = "Content-Length:";
+    is_content_length = strncmp(con_line, line, SIZEOF_CONTENTLENGTH);
+    return !is_content_length;
+}
+
+int get_content_length(char* line){
+    char length_as_string[MAX_STR_LEN];
+    int start_of_length = 16;
+    int end_of_length = strlen(line) - 2;//2 is \r, \n so "123\r\n" this will be 3
+    int i;
+    int index = start_of_length;
+    for(i = 0; i < end_of_length; i++){
+        length_as_string[i] = line[index];
+        index += 1;
+    }
+    length_as_string[index] = '\0';
+    int length_as_int;
+    sscanf(length_as_string, "%d", &length_as_int);
+    return length_as_int;
+}
+
+char* process_http_response_body(int sd, int len){
+
+
+}
+
+char *process_req_header(int sd, char *host){
+    char *header;
+    char *line;
+    header = process_first_line(sd, host);
     int done = 0;
     while(!done){
         line = process_req_line(sd);
@@ -171,7 +225,8 @@ char *process_req_header(int sd){
     return header;
 }
 
-char *process_first_line(int sd){
+//strips out the hostname
+char *process_first_line(int sd, char* host){
     char *msg;
     msg = (char *) malloc(MAX_HEADER_LINE_SIZE);
     if (!msg) {
@@ -187,6 +242,7 @@ char *process_first_line(int sd){
     int first_space = 0;
     int slash_counter = 0;
     int space_done = 0;
+    int host_counter = 0;
 	while (toberead > 0) {
 		int byteread;
 		byteread = read(sd, ptr, toberead);
@@ -197,7 +253,11 @@ char *process_first_line(int sd){
 		} else if(!byteread){
             return msg;
         }
-        last_byte = msg[counter];
+        last_byte = *ptr;
+        if(slash_counter == 2 && last_byte != '/'){
+            host[host_counter] = last_byte;
+            host_counter += 1;
+        }
         if(first_space && !space_done){
             if(last_byte == '/'){
                 slash_counter += 1;
@@ -209,6 +269,7 @@ char *process_first_line(int sd){
             }
         }
         if(last_byte == ' ' && !first_space && !space_done) first_space = 1;
+        if(last_byte == '\n' && *(ptr - 1) == '\r') return msg;
 		ptr += byteread;
         counter += 1;
 	}
@@ -259,13 +320,13 @@ char* process_req_line(int sd){
 int sendtext(int sd, char *msg) {
 	long len;
 
-	/* write lent */
 	len = (msg ? strlen(msg) + 1 : 0);
+    /*
 	len = htonl(len);
 	write(sd, (char *) &len, sizeof(len));
 
-	/* write message text */
 	len = ntohl(len);
+    */
 	if (len > 0)
 		write(sd, msg, len);
 	return (1);
