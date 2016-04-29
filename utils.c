@@ -160,14 +160,62 @@ int req_done_processing(char *str1){
 char *process_req_header(int sd){
     char *header;
     char *line;
-    header = process_req_line(sd);
+    //header = process_first_line(sd);
     int done = 0;
     while(!done){
         line = process_req_line(sd);
         strcat(header, line);
-        done = req_done_processing(header);
+        done = req_done_processing(line);
+        free(line);
     }
     return header;
+}
+
+char *process_first_line(int sd){
+    char *msg;
+    msg = (char *) malloc(MAX_HEADER_LINE_SIZE);
+    if (!msg) {
+        fprintf(stderr, "error : unable to malloc\n");
+        return (NULL);
+    }
+    /* read the message text */
+	char * ptr;
+	ptr = msg;
+    int toberead = 1;
+    char last_byte;
+    int counter = 0;
+    int first_space = 0;
+    int slash_counter = 0;
+    int space_done = 0;
+	while (toberead > 0) {
+		int byteread;
+		byteread = read(sd, ptr, toberead);
+		if (byteread < 0) {
+			if (byteread == -1)
+				perror("read");
+			return (0);
+		} else if(!byteread){
+            return msg;
+        }
+        last_byte = msg[counter];
+        if(first_space && !space_done){
+            if(last_byte == '/'){
+                slash_counter += 1;
+            }
+            ptr -= 1;
+            if(slash_counter == 3){
+                space_done = 1;
+                ptr += 1;
+            }
+        }
+        if(last_byte == ' ' && !first_space && !space_done) first_space = 1;
+		ptr += byteread;
+        counter += 1;
+	}
+	/* done reading */
+	return (msg);
+
+
 }
 
 char* process_req_line(int sd){

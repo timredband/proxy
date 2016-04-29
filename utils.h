@@ -28,6 +28,7 @@ char* process_req_line(int sd);
 int sendtext(int sd, char *msg);
 char* handle_init_request(int *sd);
 char* store_init_request_header(int *sd);
+char* process_first_line( int sd);
 
 
 #endif /*UTILS_H */
