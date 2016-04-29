@@ -1,21 +1,4 @@
-#include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h> 
-#include <sys/socket.h> 
-#include <netinet/in.h> 
-#include <arpa/inet.h> 
-#include <netdb.h>
-#include <time.h> 
-#include <errno.h>
-
-#include <stdlib.h>
-
-#define MAXNAMELEN 256
-#define ERRNO -1
-#define MAX_HEADER_LINE_SIZE 8192
-#define MAX_HEADER_LINES 100
+#include "utils.h"
 
 int startserver() {
 	int sd; /* socket descriptor */
@@ -129,9 +112,9 @@ int hooktoserver(char *servhost, ushort servport) {
 
 /*----------------------------------------------------------------*/
 
+/*
 char *recvtext(int sd) {
 	char *msg;
-    /*
 	long len;
 
 	if (!readn(sd, (char *) &len, sizeof(len))) {
@@ -140,32 +123,87 @@ char *recvtext(int sd) {
 	len = ntohl(len);
 
 	msg = NULL;
-    */
     msg = (char *) malloc(MAX_HEADER_LINE_SIZE);
     if (!msg) {
         fprintf(stderr, "error : unable to malloc\n");
         return (NULL);
     }
 
-    /* read the message text */
 	char * ptr;
 
 	ptr = buf;
+    int toberead = 1;
 	while (toberead > 0) {
 		int byteread;
 
-		byteread = read(sd, ptr, toberead);//TODO:Just read one byte at a time here. Set toberead to 1
-		if (byteread <= 0) {
+		byteread = read(sd, ptr, toberead);
+		if (byteread < 0) {
 			if (byteread == -1)
 				perror("read");
 			return (0);
 		}
 
-		toberead -= byteread;
 		ptr += byteread;
 	}
 	return (1);
 
+	return (msg);
+}
+*/
+
+int req_done_processing(char *str1){
+    char end[] = "\r\n";
+    int ret = strcmp(str1, end);
+    return !ret;
+}
+
+char *process_req_header(int sd){
+    char *header;
+    char *line;
+    header = process_req_line(sd);
+    int done = 0;
+    while(!done){
+        line = process_req_line(sd);
+        strcat(header, line);
+        done = req_done_processing(header);
+    }
+    return header;
+}
+
+char* process_req_line(int sd){
+    char *msg;
+    msg = (char *) malloc(MAX_HEADER_LINE_SIZE);
+    if (!msg) {
+        fprintf(stderr, "error : unable to malloc\n");
+        return (NULL);
+    }
+    /* read the message text */
+	char * ptr;
+	ptr = msg;
+    int toberead = 1;
+    char last_byte;
+    int counter = 0;
+    int carriage_flag = 0;
+	while (toberead > 0) {
+		int byteread;
+		byteread = read(sd, ptr, toberead);
+		if (byteread < 0) {
+			if (byteread == -1)
+				perror("read");
+			return (0);
+		} else if(!byteread){
+            return msg;
+        }
+        last_byte = msg[counter];
+        if(last_byte == '\n' && carriage_flag){
+            ptr += 1;
+            msg[counter + 1] = '\0';
+            return msg;
+        }
+        if(last_byte == '\r') carriage_flag = 1;
+		ptr += byteread;
+        counter += 1;
+	}
 	/* done reading */
 	return (msg);
 }

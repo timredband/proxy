@@ -11,18 +11,17 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "utils.h"
 
 #define MAXNAMELEN 256
 #define DEBUG 0
 #define PORT 80
 
-extern char * recvtext(int sd);
-extern int sendtext(int sd, char *msg);
-extern int startserver();
-
 void* create_thread(void *arg){
     int *sd = (int*)arg;
-
+    int sock = *sd;
+    char *request_header = process_req_header(sock);
+    printf("%s\n", request_header);
 }
 
 int main(int argc, char* argv[]){
