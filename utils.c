@@ -119,18 +119,21 @@ int readn(int sd, char *buf, int n) {
     totaltoread = n;
     ptr = buf;
     toberead = READ_SIZE;
+    char tmp_buf[READ_SIZE];
+    memset(tmp_buf, 0, sizeof(tmp_buf));
     while (totaltoread > 0) {
         int byteread;
 
-        byteread = read(sd, ptr, toberead);
+        byteread = read(sd, &tmp_buf, toberead);
         if (byteread <= 0) {
             if (byteread == -1)
                 perror("read");
             return (0);
         }
-
         totaltoread -= byteread;
+        memcpy(ptr, tmp_buf, byteread);
         ptr += byteread;
+        if(totaltoread < READ_SIZE && totaltoread > 0) toberead = totaltoread;
     }
     return (1);
 }
@@ -138,9 +141,8 @@ int readn(int sd, char *buf, int n) {
 char *process_http_response_body(int sd, int len) {
     char *msg;
     msg = NULL;
-    int test_MALLOC = 1000000;
     if (len > 0) {
-        msg = (char *) malloc(test_MALLOC);
+        msg = (char *) malloc(len);
         if (!msg) {
             fprintf(stderr, "error : unable to malloc\n");
             return (NULL);
@@ -193,8 +195,10 @@ char* process_http_response_header(int sd, int *content_length){
 int send_http_response_header_to_client(int sd, char* header){
     return sendtext(sd, header);
 }
-int send_http_response_body_to_client(int sd, char* body){
-    return sendtext(sd, body);
+int send_http_response_body_to_client(int sd, char* body, int content_length){
+	if (content_length > 0)
+		write(sd, body, content_length);
+	return (1);
 }
 
 //returns 1 if this line holds the content length header line
@@ -325,6 +329,7 @@ char* process_req_line(int sd){
 	/* done reading */
 	return (msg);
 }
+
 
 int sendtext(int sd, char *msg) {
 	long len;

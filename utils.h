@@ -40,6 +40,6 @@ char* process_http_response_body(int sd, int len);
 int readn(int sd, char *buf, int n);
 char *process_http_response_body(int sd, int len);//returns the http response body
 int send_http_response_header_to_client(int sd, char* header);
-int send_http_response_body_to_client(int sd, char* body);
+int send_http_response_body_to_client(int sd, char* body, int content_length);
 
 #endif /*UTILS_H */
