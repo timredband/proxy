@@ -104,7 +104,6 @@ int hooktoserver(char *servhost, ushort servport) {
 	/* succesful. return socket descriptor */
 	printf("admin: connected to server on '%s' at '%hu' thru '%hu'\n", servhost,
 			servport, clientport);
-	printf(">");
 	fflush(stdout);
 	return (sd);
 }
@@ -114,12 +113,13 @@ int hooktoserver(char *servhost, ushort servport) {
 /*----------------------------------------------------------------*/
 
 int readn(int sd, char *buf, int n) {
-    int toberead;
+    int toberead, totaltoread;
     char * ptr;
 
-    toberead = n;
+    totaltoread = n;
     ptr = buf;
-    while (toberead > 0) {
+    toberead = READ_SIZE;
+    while (totaltoread > 0) {
         int byteread;
 
         byteread = read(sd, ptr, toberead);
@@ -129,7 +129,7 @@ int readn(int sd, char *buf, int n) {
             return (0);
         }
 
-        toberead -= byteread;
+        totaltoread -= byteread;
         ptr += byteread;
     }
     return (1);
@@ -138,8 +138,9 @@ int readn(int sd, char *buf, int n) {
 char *process_http_response_body(int sd, int len) {
     char *msg;
     msg = NULL;
+    int test_MALLOC = 1000000;
     if (len > 0) {
-        msg = (char *) malloc(len);
+        msg = (char *) malloc(test_MALLOC);
         if (!msg) {
             fprintf(stderr, "error : unable to malloc\n");
             return (NULL);
@@ -165,21 +166,35 @@ int req_done_processing(char *str1){
 char* process_http_response_header(int sd, int *content_length){
     char *header;
     char *line;
+    char *buildheader;
     header = process_req_line(sd);
     int done = 0;
     int is_content_length_line = 0;
     int cont_length = 0;
     while(!done){
         line = process_req_line(sd);
-        strcat(header, line);
+        buildheader = malloc(strlen(header) + 1 + strlen(line) + 1);
+        memcpy(buildheader, header, strlen(header) + 1);
+        free(header);
+        strcat(buildheader, line);
         if(is_content_length_line = check_if_content_length_line(line)){
             cont_length = get_content_length(line);
             *content_length = cont_length;
         }
         done = req_done_processing(line);
         free(line);
+        header = malloc(strlen(buildheader) + 1);
+        memcpy(header, buildheader, strlen(buildheader) + 1);
+        free(buildheader);
     }
     return header;
+}
+
+int send_http_response_header_to_client(int sd, char* header){
+    return sendtext(sd, header);
+}
+int send_http_response_body_to_client(int sd, char* body){
+    return sendtext(sd, body);
 }
 
 //returns 1 if this line holds the content length header line
@@ -206,11 +221,6 @@ int get_content_length(char* line){
     return length_as_int;
 }
 
-char* process_http_response_body(int sd, int len){
-
-
-}
-
 char *process_req_header(int sd, char *host){
     char *header;
     char *line;
@@ -222,6 +232,7 @@ char *process_req_header(int sd, char *host){
         done = req_done_processing(line);
         free(line);
     }
+    printf("%s\n", header);
     return header;
 }
 
@@ -275,8 +286,6 @@ char *process_first_line(int sd, char* host){
 	}
 	/* done reading */
 	return (msg);
-
-
 }
 
 char* process_req_line(int sd){

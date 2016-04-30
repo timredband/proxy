@@ -39,6 +39,7 @@ int main(int argc, char* argv[]){
 		exit(1);
 	}
 
+
     while(1){
         int *new_sd = (int*)malloc(sizeof(int));
         struct sockaddr_in addr;
@@ -54,6 +55,9 @@ int main(int argc, char* argv[]){
         }
         int *content_length = malloc(sizeof(int));
         char *response = process_http_response_header(send_sock, content_length);
+        char *body = process_http_response_body(send_sock, *content_length);
+        send_http_response_header_to_client(*new_sd, response);
+        send_http_response_body_to_client(*new_sd, body);
         printf("%s\n", host);
         /*
         pthread_t thread;

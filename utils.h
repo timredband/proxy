@@ -20,6 +20,7 @@
 #define MAX_HEADER_LINES 100
 #define SIZEOF_CONTENTLENGTH 15
 #define MAX_STR_LEN 100
+#define READ_SIZE 1000
 
 
 int startserver();
@@ -37,6 +38,8 @@ int check_if_content_length_line(char* line);
 int get_content_length(char* line);//returns content length in http response
 char* process_http_response_body(int sd, int len);
 int readn(int sd, char *buf, int n);
-char *process_http_response_body(int sd, int len);
+char *process_http_response_body(int sd, int len);//returns the http response body
+int send_http_response_header_to_client(int sd, char* header);
+int send_http_response_body_to_client(int sd, char* body);
 
 #endif /*UTILS_H */
